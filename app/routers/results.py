@@ -20,7 +20,6 @@ async def get_results(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Ensure monitor belongs to user
     m_result = await db.execute(select(Monitor).where(Monitor.id == monitor_id, Monitor.user_id == current_user.id))
     if not m_result.scalars().first():
         raise HTTPException(status_code=404, detail="Monitor not found")
@@ -40,19 +39,16 @@ async def get_stats(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Try cache first
     r = await redis_client.get_client()
     cache_key = f"stats:{monitor_id}"
     cached_stats = await r.get(cache_key)
     if cached_stats:
         return MonitorStats(**json.loads(cached_stats))
 
-    # Ensure monitor belongs to user
     m_result = await db.execute(select(Monitor).where(Monitor.id == monitor_id, Monitor.user_id == current_user.id))
     if not m_result.scalars().first():
         raise HTTPException(status_code=404, detail="Monitor not found")
     
-    # Aggregate stats
     total_result = await db.execute(select(func.count(CheckResult.id)).where(CheckResult.monitor_id == monitor_id))
     total_checks = total_result.scalar() or 0
     
@@ -75,7 +71,6 @@ async def get_stats(
         failed_checks=total_checks - passed_checks
     )
     
-    # Cache for 60 seconds
     await r.setex(cache_key, 60, json.dumps(stats.dict()))
     
     return stats

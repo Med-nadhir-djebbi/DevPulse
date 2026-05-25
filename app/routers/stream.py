@@ -18,7 +18,6 @@ async def stream_results(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Ensure monitor belongs to user
     m_result = await db.execute(select(Monitor).where(Monitor.id == monitor_id, Monitor.user_id == current_user.id))
     if not m_result.scalars().first():
         raise HTTPException(status_code=404, detail="Monitor not found")

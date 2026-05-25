@@ -13,7 +13,6 @@ scheduler = AsyncIOScheduler()
 
 async def run_check(monitor_id: int):
     async with AsyncSessionLocal() as db:
-        # Fetch fresh monitor data
         result = await db.execute(select(Monitor).where(Monitor.id == monitor_id))
         monitor = result.scalars().first()
         if not monitor or not monitor.is_active:
@@ -48,14 +47,12 @@ async def run_check(monitor_id: int):
             
             db.add(result)
             
-            # Update monitor last_checked_at
             await db.execute(
                 update(Monitor)
                 .where(Monitor.id == monitor.id)
                 .values(last_checked_at=datetime.utcnow())
             )
             
-            # Publish to Redis for SSE using the pool
             redis = await redis_client.get_client()
             await redis.publish(f"monitor:{monitor.id}", json.dumps({
                 "status_code": result.status_code,
@@ -64,7 +61,6 @@ async def run_check(monitor_id: int):
                 "checked_at": str(datetime.utcnow())
             }))
 
-            # Simple Alerting logic
             if not result.passed:
                 alert_result = await db.execute(select(Alert).where(Alert.monitor_id == monitor.id))
                 alert = alert_result.scalars().first()
@@ -85,7 +81,6 @@ async def run_check(monitor_id: int):
 async def check_all_monitors():
     async with AsyncSessionLocal() as db:
         now = datetime.utcnow()
-        # Find active monitors due for a check
         result = await db.execute(
             select(Monitor.id).where(
                 Monitor.is_active == True,
@@ -95,7 +90,6 @@ async def check_all_monitors():
         )
         monitor_ids = result.scalars().all()
         
-        # Each check now gets its own task and its own DB session
         tasks = [run_check(m_id) for m_id in monitor_ids]
         if tasks:
             await asyncio.gather(*tasks)

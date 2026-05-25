@@ -14,7 +14,6 @@ app = FastAPI(title=settings.PROJECT_NAME)
 
 @app.on_event("startup")
 async def startup():
-    # Retry logic for DB connection (useful for Docker Compose)
     retries = 5
     while retries > 0:
         try:
@@ -31,7 +30,6 @@ async def startup():
         logger.error("Could not connect to the database. Exiting.")
         raise RuntimeError("Database connection failed")
 
-    # Connect to Redis
     await redis_client.connect()
     logger.info("Connected to Redis.")
     
